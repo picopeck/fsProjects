@@ -1,0 +1,8 @@
+/*	
+  PeckIndustries interface to flight sim for Autopilot module.	
+  KEYWORDS DECLARATIONS	
+*/	
+	
+PImax7219Control	KEYWORD1
+testDisplay	KEYWORD2
+displayNumber	KEYWORD2

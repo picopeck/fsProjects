@@ -1,0 +1,16 @@
+/*				
+  PeckIndustries interface to flight sim for Autopilot module.				
+  KEYWORDS DECLARATIONS				
+*/				
+				
+PIControls	KEYWORD1			
+isClockwise	KEYWORD2			
+isCounterClockwise	KEYWORD2			
+encoderDirection	KEYWORD2			
+update	KEYWORD2			
+setState	KEYWORD2			
+isLOW2HIGH	KEYWORD2			
+isHIGH2LOW	KEYWORD2			
+isHIGH	KEYWORD2			
+isLOW	KEYWORD2			
+transitionDirection	KEYWORD2			

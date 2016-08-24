@@ -1,0 +1,12 @@
+/*	
+  PeckIndustries interface to flight sim for Autopilot module.	
+  KEYWORDS DECLARATIONS	
+*/	
+	
+PI74HC565Control	KEYWORD1
+setLed	KEYWORD2
+printState	KEYWORD2
+readState	KEYWORD2
+update	KEYWORD2
+setMultipleLed	KEYWORD2
+test	KEYWORD2
