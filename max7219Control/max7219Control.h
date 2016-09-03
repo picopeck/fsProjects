@@ -13,8 +13,9 @@ public:
 
 private:
 	LedControl _deviceHandle;
-	int DELAY_TIME_uS=500;
+	int DELAY_TIME_uS=1000;
 	int _numDevices;
+	void main();
 
 };
 

@@ -8,37 +8,26 @@
 #include <LedControl.h>
 #include "max7219Control.h"
 #include <Arduino.h>
-//#include <Print.h>
+#include <Print.h>
 
-PImax7219Control::PImax7219Control(int dataPin, int clkPin, int csPin, int numDevices) : _deviceHandle(dataPin, clkPin, csPin, numDevices) {}
-/*
-	Serial.println("Init max7219Control...");
-	//wake up the MAX72XX from power-saving mode
-	//_deviceHandle.shutdown(0, false);
-	//set a medium brightness for the Leds
-	//_deviceHandle.setIntensity(0, 8);
-	int iDevices = _deviceHandle.getDeviceCount();
-	_numDevices = numDevices;
-	for (int address = 0; address < iDevices; address++)
-	{
-	_deviceHandle.shutdown(address, false);
-	_deviceHandle.setIntensity(address, 8);
-	_deviceHandle.clearDisplay(address);
-	}
-	//initialise the Max7219 devices
-	//testDisplay();
-	}*/
+PImax7219Control::PImax7219Control(int dataPin, int clkPin, int csPin, int numDevices) : _deviceHandle(dataPin, clkPin, csPin, numDevices) 
+{
+//can't run setup as the contructor hasnt finished yet!
+}
+
 
 void PImax7219Control::testDisplay()
 {
 	//turn this into a 'turn all on' test function	
 	//initialise the Max7219 devices	
-	Serial.print("initialising");
-	int iDevices = _deviceHandle.getDeviceCount();
-	for (int address = 0; address < iDevices; address++)
+	Serial.print("testing ");
+	_numDevices = _deviceHandle.getDeviceCount();
+	Serial.println(_numDevices);
+	Serial.println(" display device(s)...");
+		for (int address = 0; address < _numDevices; address++)
 	{
-		_deviceHandle.shutdown(address, false);
-		_deviceHandle.setIntensity(address, 8);
+		_deviceHandle.shutdown(address, false); 		//wake up the MAX72XX from power-saving mode
+		_deviceHandle.setIntensity(address, 8);//set a medium brightness for the Leds
 		_deviceHandle.clearDisplay(address);
 		//sets the maximum number of characters to display.  need to set all unused characters to ' '	
 		//_deviceHandle.setScanLimit(address, 8);
@@ -52,6 +41,8 @@ void PImax7219Control::testDisplay()
 			_deviceHandle.setChar(address, j, ' ', false);
 		}
 	}
+	Serial.println("display test complete");
+	delay(DELAY_TIME_uS);
 }
 
 /* function for displaying a number on an 7 segment display
