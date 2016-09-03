@@ -9,3 +9,15 @@ readPin	KEYWORD2
 printState	KEYWORD2
 readState	KEYWORD2
 previousState	KEYWORD2
+				
+isClockwise	KEYWORD2			
+isCounterClockwise	KEYWORD2			
+encoderDirection	KEYWORD2			
+update	KEYWORD2			
+setState	KEYWORD2			
+isLOW2HIGH	KEYWORD2			
+isHIGH2LOW	KEYWORD2			
+isHIGH	KEYWORD2			
+isLOW	KEYWORD2			
+transitionDirection	KEYWORD2			
+
