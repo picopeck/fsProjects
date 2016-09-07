@@ -143,19 +143,8 @@ void initDefaults(void);
 void setup()
 {
   Serial.begin(115200); //open serial port for communications
-  max7219Control.initDevices(); 
-/*
-ADDITIONAL max7219Control function
-
-.testDisplay() should be just for setting all values to '8' and the decimal points.
-.initDevices() should be for setting up the devices in the first place, which calls the .testDisplay() function
-
-void PImax7219Control::initDevices()
-{
-strip the necessary out of the .testDisplay() function
-}
-*/
   initDefaults();
+  max7219Control.initDevices(); 
 }
 
 void loop()
@@ -180,7 +169,7 @@ if (!IBITRunning)
     autoPilotSwitches.update();//sets the previous switch states to the current ones.
   }
 
-  //device74HC565.update(); // sends the bytes to the 74HC565 driver
+  //device74HC595.update(); // sends the bytes to the 74HC565 driver
 
   delay(POLL_DELAY_MSEC);
 }
@@ -204,7 +193,7 @@ Testing will interrupt normal behaviour but should resume to previous settings u
 void AP_IBIT()
 {
 IBITRunning=true;
-max7219.testDisplay(); sets all the displays to '8' and decimal points
+max7219.IBIT(); sets all the displays to '8' and decimal points
 //device74hc595.test(); turns on all the LEDs
 IBITRunning=false;
 }
