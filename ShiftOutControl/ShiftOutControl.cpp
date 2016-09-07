@@ -16,7 +16,7 @@ PI74HC565Control::PI74HC565Control(int fLatchPin, int fClockPin, int fDataPin, i
 	DATA_WIDTH_74HC565 = _numDevices * 8;
 }
 
-void PI74HC565Control::test(unsigned long fValue)
+void PI74HC565Control::IBIT(unsigned long fValue)
 {
 	setMultipleLed(fValue);
 	update();
