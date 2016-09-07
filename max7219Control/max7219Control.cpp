@@ -16,14 +16,14 @@ PImax7219Control::PImax7219Control(int dataPin, int clkPin, int csPin, int numDe
 }
 
 
-void PImax7219Control::testDisplay()
+void PImax7219Control::initDevices()
 {
 	//turn this into a 'turn all on' test function	
 	//initialise the Max7219 devices	
-	Serial.print("testing ");
+	Serial.print("Device Init... ");
 	_numDevices = _deviceHandle.getDeviceCount();
 	Serial.println(_numDevices);
-	Serial.println(" display device(s)...");
+	//Serial.println(" display device(s)...");
 		for (int address = 0; address < _numDevices; address++)
 	{
 		_deviceHandle.shutdown(address, false); 		//wake up the MAX72XX from power-saving mode
@@ -31,6 +31,7 @@ void PImax7219Control::testDisplay()
 		_deviceHandle.clearDisplay(address);
 		//sets the maximum number of characters to display.  need to set all unused characters to ' '	
 		//_deviceHandle.setScanLimit(address, 8);
+		/*
 		for (int j = 0; j < 8; j++)
 		{ //turns on all digits and decimal points	
 			_deviceHandle.setChar(address, j, '8', true);
@@ -39,10 +40,29 @@ void PImax7219Control::testDisplay()
 		for (int j = 0; j < 8; j++)
 		{ //turns on all digits and decimal points	
 			_deviceHandle.setChar(address, j, ' ', false);
+		}*/
+	}
+	IBIT();
+	Serial.println("Completed.");
+	delay(DELAY_TIME_uS);
+}
+
+void PImax7219Control::IBIT();
+{
+	Serial.print("IBIT - Display Test Start...");
+	for (int address = 0; address < _numDevices; address++)
+	{
+		for (int j=0;j<8;j++)
+		{// turns on all digits and decimal points
+			_deviceHandle.setChar(address, j,'8',true);
+		}
+		delay(DELAY_TIME_uS);
+		for (int j=0;j<8;j++)
+		{ // turn them all off again
+			_deviceHandle.setChar(address,j,' ',false);
 		}
 	}
-	Serial.println("display test complete");
-	delay(DELAY_TIME_uS);
+	Serial.println("Completed.");
 }
 
 /* function for displaying a number on an 7 segment display
@@ -129,7 +149,7 @@ void PImax7219Control::displayNumber(int fDeviceID, long fNumber, int fStartInde
 			else
 			{
 				_deviceHandle.setChar(fDeviceID, digitIndex, ' ', true);
-			}  //no need for an ‘else’ as the previous setDigit calls will draw the appropriate number when fLeadingZero becomes true
+			}  //no need for an â€˜elseâ€™ as the previous setDigit calls will draw the appropriate number when fLeadingZero becomes true
 		}
 		else
 		{
