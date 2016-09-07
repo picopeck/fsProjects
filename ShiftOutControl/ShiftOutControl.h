@@ -12,11 +12,9 @@ class PI74HC565Control
   public:	
     PI74HC565Control(int fLatchPin, int fClockPin, int fDataPin, int fNumDevices=1);	
     void setLed(int fIndex, int fValue);	
-    void printState();	
     void update();	
-    unsigned long readState();	
     void setMultipleLed(unsigned long fValue);	
-    void test(unsigned long fValue);	
+    void IBIT(unsigned long fValue);	
 	
   private:	
     unsigned long _value;	
