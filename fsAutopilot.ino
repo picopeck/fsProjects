@@ -3,6 +3,7 @@
   Displays and LED controlling done by Arduino Uno
   Code taken from a multitude of sources, mainly Jim for link2fs program, and Arduino samples.
   Receives inputs via link2fs on the status of the autopilot system.
+  v2.1.1 - prepared for 74HC595 device and added IBIT on startup
   v2.1.0 - To date all the encoders will cause fs to simply increment/decrement rather than set bespoke values.
          Therefore the cycle of events will always be to check for a receipt of data from link2fs and process accordingly.
          Encoder/button presses will cause an output via link2fs to fs, and a subsequent return of status via the read will be actioned.
@@ -144,7 +145,8 @@ void setup()
 {
   Serial.begin(115200); //open serial port for communications
   initDefaults();
-  max7219Control.initDevices(); 
+  max7219Control.initDevices();
+  //device74HC595.IBIT(pow(2,32)-1);
 }
 
 void loop()
