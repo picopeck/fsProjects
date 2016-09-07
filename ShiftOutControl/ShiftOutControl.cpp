@@ -14,7 +14,6 @@ PI74HC565Control::PI74HC565Control(int fLatchPin, int fClockPin, int fDataPin, i
 	pinMode(_dataPin, OUTPUT);
 
 	DATA_WIDTH_74HC565 = _numDevices * 8;
-	test(pow(2, 32) - 1);
 }
 
 void PI74HC565Control::test(unsigned long fValue)
@@ -57,29 +56,4 @@ void PI74HC565Control::setMultipleLed(unsigned long fValue)
 void PI74HC565Control::setLed(int fIndex, int fValue)
 {
 	bitWrite(_value, fIndex, fValue);
-}
-
-void PI74HC565Control::printState()
-{
-	unsigned long tempState = readState();
-	/*  Serial.print("Pin States:\r\n");
-	  for (int i = 0; i < DATA_WIDTH_74HC165; i++) //this compensates for the length of DATA_WIDTH_74HC165 i.e.
-	  {
-	  Serial.print(" Pin-");
-	  Serial.print(i);
-	  Serial.print(": ");
-
-	  if ((_curValues >> i) & 1)
-	  Serial.print("HIGH");
-	  else
-	  Serial.print("LOW");
-
-	  Serial.print("\r\n");
-	  }
-	  Serial.print("\r\n");
-	  */
-}
-
-unsigned long PI74HC565Control::readState()
-{
 }
