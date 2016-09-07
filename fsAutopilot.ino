@@ -3,6 +3,10 @@
   Displays and LED controlling done by Arduino Uno
   Code taken from a multitude of sources, mainly Jim for link2fs program, and Arduino samples.
   Receives inputs via link2fs on the status of the autopilot system.
+  v2.1.0 - To date all the encoders will cause fs to simply increment/decrement rather than set bespoke values.
+         Therefore the cycle of events will always be to check for a receipt of data from link2fs and process accordingly.
+         Encoder/button presses will cause an output via link2fs to fs, and a subsequent return of status via the read will be actioned.
+         For standalone or non-link2fs applications, the user will need to know how to decode the comms coming out of the Arduino.  These are in accordance with link2fs so will point to that, but 	an independent decoder could be used for other sims etc.
 
   v2.0.0 - Major change to use a single array for controls/switches/encoder etc
          built with libraries
@@ -10,7 +14,6 @@
          -> max7219Control v1.0.0
          -> ShiftInControl v1.0.0
          -> ShiftOutControl v1.0.0
-
   v1.0.0 - built with libraries
          -> Controls v1.0.0
          -> max7219Control v1.0.0
@@ -18,7 +21,6 @@
          -> ShiftOutControl v1.0.0
 */
 
-//#include <LedControl.h>
 #include "max7219Control.h"
 #include "ShiftInControl.h"
 
@@ -31,8 +33,21 @@ const int DEVICEID_HEADING = 0;
 const int DEVICEID_COURSE = 0;
 const int DEVICEID_IAS = 0;
 const int DEVICEID_MACH = 0;
-const int DEVICEID_RADIO_COMM1 = 99;
-const int DEVICEID_RADIO_COMM1_STBY = 98;
+
+typedef struct
+{
+long currentValue;
+long defaultValue=0;
+//plus any others
+} controlType
+
+//setup variables to hold local state of variable things
+controlType apAltitude;
+controlType apCourse;
+controlType apIAS;
+controlType apMach; //need to careful to multiply by the power when handling.
+controlType apVerticalSpeed;
+
 //etc...
 #define ON 1
 #define OFF 0
@@ -45,7 +60,7 @@ const int DEVICEID_RADIO_COMM1_STBY = 98;
 #define NOCHANGE_LOW -1
 #define UNDETERMINED -99
 
-enum eAPFUNCTION
+enum eAPCONTROL
 {
   AP_IASMACH_UP,
   AP_IASMACH_DOWN,
@@ -67,9 +82,14 @@ enum eAPFUNCTION
   AP_FLIGHTDIRECTOR_SWITCH,
   AP_APPROACH_HOLD,
   AP_BACKCOURSE_HOLD,
-  AP_TEST_BUTTON
-  //etc
-  // indexes into the 74HC165 control, therefore they must be in the same order as connected
+  AP_NAV1_HOLD,
+  AP_GPSDRIVESNAV1_HOLD,
+  AP_WINGLEVELLER_HOLD,
+  AP_GLIDESLOPE_HOLD,
+  AP_AUTOTHROTTLEARMD_HOLD,
+  AP_TOGA_HOLD,
+  AP_TEST_BUTTON,
+  // indexes into the 74HC165 control, therefore they must be in the same order as connected.  32 Max per PI74HC165Control class.
 };
 
 enum eAP_HOLD_STATUSES
@@ -90,19 +110,10 @@ enum eAP_HOLD_STATUSES
   APPROACHHOLD_STATUS,
   AUTOTHROTTLEHOLD_STATUS,
   TOGAHOLD_STATUS
-  // indexs into the 74HC565 array
+  // indexes into the 74HC565 array
 };
 
-
-//setup variables to hold local state of displays
-long apAltitude;
-int apHeading;
-int apCourse ;
-int apIAS;
-int apMach ; //need to careful to multiply by the power when handling.
-int apVerticalSpeed ;
-
-//pin allocations
+// ### Pin allocations ###
 //7 segment output displays
 int max7219DataIn = 13;
 int max7219CLK = 12;
@@ -118,24 +129,48 @@ int pLoadPin74HC165 = 7; //PL on chip, pin 1
 int clockEnablePin74HC165 = 9; //CE on chip, pin 15
 int dataPin74HC165 = 6; // Q7 on chip, pin 9
 int clockPin74HC165 = 8; //CP on chip, pin 2
-#define NUMBER_OF_SHIFT_REGISTERS_74HC165 1
+#define NUMBER_OF_SHIFT_REGISTERS_74HC165 4 //although can handle up to 8, the return 'value' is limited to a long i.e. 32 (4 devices)
 
 PI74HC165Control autoPilotSwitches = PI74HC165Control(pLoadPin74HC165, clockEnablePin74HC165, dataPin74HC165, clockPin74HC165, NUMBER_OF_SHIFT_REGISTERS_74HC165);
-unsigned long stateAutoPilotSwitches;
+//unsigned long stateAutoPilotSwitches;
 
 int iCodeIn, iStatus;
+bool IBITRunning=false;
 void AUTOPILOT_READ(void);
-void AUTOPILOT_WRITE(eAPFUNCTION);
+void AUTOPILOT_WRITE(eAPCONTROL);
+void initDefaults(void);
 
 void setup()
 {
   Serial.begin(115200); //open serial port for communications
-  max7219Control.testDisplay();
+  max7219Control.initDevices(); 
+/*
+ADDITIONAL max7219Control function
+
+.testDisplay() should be just for setting all values to '8' and the decimal points.
+.initDevices() should be for setting up the devices in the first place, which calls the .testDisplay() function
+
+void PImax7219Control::initDevices()
+{
+strip the necessary out of the .testDisplay() function
+}
+*/
+  initDefaults();
 }
 
 void loop()
 {
-  //stateAutoPilotSwitches = autoPilotSwitches.readState(); //latches and stores the state of the switches
+if (!IBITRunning)
+{
+  if (Serial.available()) //check for data on the serial bus
+  {
+    iCodeIn = getChar();
+    if (iCodeIn == '=') //sign for Autopilot functions
+    {
+      AUTOPILOT_READ();
+    }
+  }
+
   if (autoPilotSwitches.readState() != autoPilotSwitches.previousState()) //value is different
   {
     Serial.println("*Pin Value change detected\r\n");
@@ -147,16 +182,31 @@ void loop()
 
   //device74HC565.update(); // sends the bytes to the 74HC565 driver
 
-  if (Serial.available()) //check for data on the serial bus
-  {
-    iCodeIn = getChar();
-    if (iCodeIn == '=') //sign for Autopilot functions
-    {
-      AUTOPILOT_READ();
-    }
-  }
-
   delay(POLL_DELAY_MSEC);
+}
+}
+
+// initialises the default state of things
+void initDefaults()
+{
+controlType apAltitude.currentValue=apAltitude.defaultValue;
+controlType apCourse.currentValue=apCourse.defaultValue;
+controlType apIAS.currentValue=apIAS.defaultValue;
+controlType apMach.currentValue=apMach.defaultValue; //need to careful to multiply by the power when handling.
+controlType apVerticalSpeed.currentValue=apVerticalSpeed.defaultValue;;
+//could be expanded to include the momentaries too
+}
+
+/*
+Function to test the status of all the LEDs/displays of the autopilot.
+Testing will interrupt normal behaviour but should resume to previous settings upon completion
+*/
+void AP_IBIT()
+{
+IBITRunning=true;
+max7219.testDisplay(); sets all the displays to '8' and decimal points
+//device74hc595.test(); turns on all the LEDs
+IBITRunning=false;
 }
 
 char getChar()
@@ -225,6 +275,12 @@ long getLng(int fNumChars)
 
 void processSwitchPositions()  //will become the processor for switch statuses
 {
+  /* IBIT */  
+  if (autoPilotSwitches.isLOW2HIGH(AP_TEST_BUTTON)) // value has transitioned from 0->1
+  {
+    AP_IBIT();
+  }
+  
   /* MAIN AUTOPILOT */
   if (autoPilotSwitches.isLOW2HIGH(AP_AUTOPILOT_HOLD))
     AUTOPILOT_WRITE(AP_AUTOPILOT_HOLD); //calls procedure to toggle the current state.
@@ -250,12 +306,12 @@ void processSwitchPositions()  //will become the processor for switch statuses
   if (autoPilotSwitches.isHIGH(AP_IASMACH_SWITCH))
   {
     //assumes '1' is for MACH
-    max7219Control.displayNumber(DEVICEID_MACH, apMach, 1, 3, 2); // display the current MACH value
+    max7219Control.displayNumber(DEVICEID_MACH, apMach.currentValue, 1, 3, 2); // display the current MACH value
   }
   else if (autoPilotSwitches.isLOW(AP_IASMACH_SWITCH))
   {
     //assumes '0' is for IAS
-    max7219Control.displayNumber(DEVICEID_IAS, apIAS, 1, 3);
+    max7219Control.displayNumber(DEVICEID_IAS, apIAS.currentValue, 1, 3);
   }
   else {}
 
@@ -342,59 +398,59 @@ void AUTOPILOT_READ()
   switch (iCodeIn)
   {
     case 'a': //autopilot active
-      { //Serial.print("Autopilot Active Message ");
+      { 
         iNextChar = getChar();
         iStatus = (int)iNextChar;
-        //        device74HC565.setLed(AUTOPILOT_STATUS, iStatus - 48);
+//        device74HC565.setLed(AUTOPILOT_STATUS, iStatus - 48);
         break;
       }
     case 'b': //autopilot altitude setting
-      { apAltitude = getLng(5);
-
-        max7219Control.displayNumber(DEVICEID_ALTITUDE, apAltitude, 4, 5);
+      { 
+	apAltitude.currentValue = getLng(5);
+        max7219Control.displayNumber(DEVICEID_ALTITUDE, apAltitude.currentValue, 4, 5);
         break;
       }
     case 'c': //autopilot Vertical Speed Set
-      { //Serial.println("Vertical Speed Set");
-        apVerticalSpeed = getInt(5, 0);
+      { 
+        apVerticalSpeed.currentValue = getInt(5, 0);
         int iNegative = 0;
-        if (apVerticalSpeed < 0)
+        if (apVerticalSpeed.currentValue < 0)
         {
           iNegative = -1;
-          apVerticalSpeed *= iNegative;
+          apVerticalSpeed.currentValue *= iNegative;
         }
         else {
           iNegative = 0;
         }
-        max7219Control.displayNumber(DEVICEID_VERTICALSPEED, apVerticalSpeed, 5, 4, 0, iNegative);
+        max7219Control.displayNumber(DEVICEID_VERTICALSPEED, apVerticalSpeed.currentValue, 5, 4, 0, iNegative);
         break;
       }
     case 'd': //autopilot Heading Set
       {
-        apHeading = getInt(3, 0);
+        apHeading.currentValue = getInt(3, 0);
         HDGorCOURSE();
         break;
       }
     case 'e': //autopilot Course Set
       {
-        apCourse = getInt(3, 0);
+        apCourse.currentValue = getInt(3, 0);
         HDGorCOURSE();
         break;
       }
     case 'f': //IAS setting
       {
-        apIAS = getInt(3, 0);
+        apIAS.currentValue = getInt(3, 0);
         IASorMACH();
         break;
       }
     case 'g': //MACH setting
       {
-        apMach = getInt(4, 2);
+        apMach.currentValue = getInt(4, 2);
         IASorMACH();
         break;
       }
     case 'h': //autopilot MACH Hold
-      { //Serial.print("MACH Hold...");
+      { 
         iNextChar = getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(MACHHOLD_STATUS, iStatus - 48);
@@ -402,84 +458,84 @@ void AUTOPILOT_READ()
       }
 
     case 'j': //autopilot Heading Hold
-      { //Serial.println("Heading Hold");
+      { 
         iNextChar = getChar();
         iStatus = (int)iNextChar;
         //       device74HC565.setLed(HEADINGHOLD_STATUS, iStatus - 48);
         break;
       }
     case 'k': //autopilot Altitude Hold
-      { //Serial.println("Altitude Hold");
+      { 
         iNextChar = getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(ALTITUDEHOLD_STATUS, iStatus - 48);
         break;
       }
     case 'l': //autopilot GPS drives NAV1
-      { //Serial.println("GPS Drives NAV1");
+      { 
         iNextChar = getChar();
         iStatus = (int)iNextChar;
         //       device74HC565.setLed(GPSDRIVESNAV1HOLD_STATUS, iStatus - 48);
         break;
       }
     case 'm': //autopilot Approach Hold
-      { //Serial.println("Approach Hold");
+      { 
         iNextChar = getChar();
         iStatus = (int)iNextChar;
         //      device74HC565.setLed(APPROACHHOLD_STATUS, iStatus - 48);
         break;
       }
     case 'n': //autopilot Backcourse
-      { //Serial.println("Backcourse");
+      { 
         iNextChar = getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(BACKCOURSEHOLD_STATUS, iStatus - 48);
         break;
       }
     case 'o': //autopilot NAV1 Lock
-      { //Serial.println("NAV1 Lock");
+      { 
         iNextChar = getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(NAV1HOLD_STATUS, iStatus - 48);
         break;
       }
     case 'p': //autopilot Wing Leveller
-      { //Serial.println("Wing Leveller");
+      { 
         iNextChar = getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(WINGLEVELLERHOLD_STATUS, iStatus - 48);
         break;
       }
     case 'q': //autopilot Flight Director
-      { //Serial.println("Flight Director");
+      { 
         iNextChar = getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(FLIGHTDIRECTORHOLD_STATUS, iStatus - 48);
         break;
       }
     case 'r': //autopilot Glideslope Hold
-      { //Serial.println("Glideslope Hold");
+      { 
         iNextChar = getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(GLIDESLOPEHOLD_STATUS, iStatus - 48);
         break;
       }
     case 's': //autopilot IAS Hold
-      { //Serial.print("IAS Hold...");
+      { 
         iNextChar = getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(IASHOLD_STATUS, iStatus - 48);
         break;
       }
     case 't': //autopilot Autothrottle Armed
-      { //Serial.println("Autothrottle Armed");
+      { 
         iNextChar = getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(AUTOTHROTTLEARMED_STATUS, iStatus - 48);
         break;
       }
     case 'u': //autopilot Autothrottle Active
-      { //Serial.println("Autothrottle");
+      { 
         iNextChar = getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(AUTOTHROTTLEHOLD_STATUS, iStatus - 48);
@@ -487,7 +543,7 @@ void AUTOPILOT_READ()
       }
   }
 }
-void AUTOPILOT_WRITE(eAPFUNCTION fFunction)
+void AUTOPILOT_WRITE(eAPCONTROL fFunction)
 {
   /*code to write to link2fs when a value has changed via a Switch press or rotary change
     expecting it to be called with the appropriate function identifer
@@ -594,13 +650,13 @@ void HDGorCOURSE()
 {
   if (autoPilotSwitches.isLOW(AP_HEADINGCOURSE_SWITCH))
   {
-    if (apHeading == 0) apHeading = 360;
-    max7219Control.displayNumber(DEVICEID_HEADING, apHeading, 6, 3);
+    if (apHeading.currentValue == 0) apHeading.currentValue = 360;
+    max7219Control.displayNumber(DEVICEID_HEADING, apHeading.currentValue, 6, 3);
   }
   else if (autoPilotSwitches.isHIGH(AP_HEADINGCOURSE_SWITCH))
   {
-    if (apCourse == 0) apCourse = 360;
-    max7219Control.displayNumber(DEVICEID_COURSE, apCourse, 6, 3);
+    if (apCourse.currentValue == 0) apCourse.currentValue = 360;
+    max7219Control.displayNumber(DEVICEID_COURSE, apCourse.currentValue, 6, 3);
   }
   else Serial.println("### Error in HEADINGCOURSE switch detection ###");
 }
@@ -610,20 +666,19 @@ void IASorMACH()
   if (autoPilotSwitches.isLOW(AP_IASMACH_SWITCH)) //ias_machSwitch.isLOW(0))
   {
     //if speed greater than 899 then put a decimal and the last two digits
-    if (apIAS > 899)
+    if (apIAS.currentValue > 899)
     {
-      max7219Control.displayNumber(DEVICEID_IAS, (apIAS - 900), 1, 3, 2, 1, false);
+      max7219Control.displayNumber(DEVICEID_IAS, (apIAS.currentValue - 900), 1, 3, 2, 1, false);
     }
     else
     {
-      max7219Control.displayNumber(DEVICEID_IAS, apIAS, 1, 3);
+      max7219Control.displayNumber(DEVICEID_IAS, apIAS.currentValue, 1, 3);
     }
   }
   else if (autoPilotSwitches.isHIGH(AP_IASMACH_SWITCH))
   {
     //apMach = getInt(4, 2);
-    max7219Control.displayNumber(DEVICEID_MACH, apMach, 1, 3, 2);
+    max7219Control.displayNumber(DEVICEID_MACH, apMach.currentValue, 1, 3, 2);
   }
   else Serial.println("### Error in IASMACH switch detection ###");
 }
-
