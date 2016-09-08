@@ -3,6 +3,7 @@
   Displays and LED controlling done by Arduino Uno
   Code taken from a multitude of sources, mainly Jim for link2fs program, and Arduino samples.
   Receives inputs via link2fs on the status of the autopilot system.
+  v2.1.2 - omitted generic functions and added PIFunctions.h as a common repository.
   v2.1.1 - prepared for 74HC595 device and added IBIT on startup
   v2.1.0 - To date all the encoders will cause fs to simply increment/decrement rather than set bespoke values.
          Therefore the cycle of events will always be to check for a receipt of data from link2fs and process accordingly.
@@ -24,6 +25,7 @@
 
 #include "max7219Control.h"
 #include "ShiftInControl.h"
+#include "PIFunctions.h"
 
 const int POLL_DELAY_MSEC = 1;
 
@@ -200,6 +202,7 @@ max7219.IBIT(); sets all the displays to '8' and decimal points
 IBITRunning=false;
 }
 
+/*
 char getChar()
 {
   while (Serial.available() == 0);
@@ -263,6 +266,7 @@ long getLng(int fNumChars)
   }
   return (sTemp.toFloat());
 }
+*/
 
 void processSwitchPositions()  //will become the processor for switch statuses
 {
