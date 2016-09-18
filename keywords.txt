@@ -1,8 +1,0 @@
-/*	
-  PeckIndustries common functions	
-  KEYWORDS DECLARATIONS	
-*/	
-getChar KEYWORD2
-getNumber KEYWORD2
-getInt KEYWORD2
-getLng KEYWORD2
