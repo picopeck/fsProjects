@@ -23,9 +23,9 @@
          -> ShiftOutControl v1.0.0
 */
 
+#include "PIFunctions.h"
 #include "max7219Control.h"
 #include "ShiftInControl.h"
-#include "PIFunctions.h"
 
 const int POLL_DELAY_MSEC = 1;
 
@@ -39,14 +39,15 @@ const int DEVICEID_MACH = 0;
 
 typedef struct
 {
-long currentValue;
-long defaultValue=0;
-//plus any others
-} controlType
+  long currentValue;
+  long defaultValue = 0;
+  //plus any others
+} controlType;
 
 //setup variables to hold local state of variable things
 controlType apAltitude;
 controlType apCourse;
+controlType apHeading;
 controlType apIAS;
 controlType apMach; //need to careful to multiply by the power when handling.
 controlType apVerticalSpeed;
@@ -124,7 +125,7 @@ int max7219LOAD = 11;
 #define NUMBER_OF_MAX7219_DEVICES 3
 
 PImax7219Control max7219Control = PImax7219Control(max7219DataIn, max7219CLK, max7219LOAD, NUMBER_OF_MAX7219_DEVICES);
-
+PIFunctions commonFunction;
 /*
   initialise parameters for switch inputs
 */
@@ -138,10 +139,11 @@ PI74HC165Control autoPilotSwitches = PI74HC165Control(pLoadPin74HC165, clockEnab
 //unsigned long stateAutoPilotSwitches;
 
 int iCodeIn, iStatus;
-bool IBITRunning=false;
+bool IBITRunning = false;
 void AUTOPILOT_READ(void);
 void AUTOPILOT_WRITE(eAPCONTROL);
 void initDefaults(void);
+void processSwitchPositions(void);
 
 void setup()
 {
@@ -153,96 +155,96 @@ void setup()
 
 void loop()
 {
-if (!IBITRunning)
-{
-  if (Serial.available()) //check for data on the serial bus
+  if (!IBITRunning)
   {
-    iCodeIn = getChar();
-    if (iCodeIn == '=') //sign for Autopilot functions
+    if (Serial.available()) //check for data on the serial bus
     {
-      AUTOPILOT_READ();
+      iCodeIn = commonFunction.getChar();
+      if (iCodeIn == '=') //sign for Autopilot functions
+      {
+        AUTOPILOT_READ();
+      }
     }
+
+    if (autoPilotSwitches.readState() != autoPilotSwitches.previousState()) //value is different
+    {
+      Serial.println("*Pin Value change detected\r\n");
+
+      processSwitchPositions(); //processes the current status of the switches
+
+      autoPilotSwitches.update();//sets the previous switch states to the current ones.
+    }
+
+    //device74HC595.update(); // sends the bytes to the 74HC565 driver
+
+    delay(POLL_DELAY_MSEC);
   }
-
-  if (autoPilotSwitches.readState() != autoPilotSwitches.previousState()) //value is different
-  {
-    Serial.println("*Pin Value change detected\r\n");
-
-    processSwitchPositions(); //processes the current status of the switches
-
-    autoPilotSwitches.update();//sets the previous switch states to the current ones.
-  }
-
-  //device74HC595.update(); // sends the bytes to the 74HC565 driver
-
-  delay(POLL_DELAY_MSEC);
-}
 }
 
 // initialises the default state of things
 void initDefaults()
 {
-controlType apAltitude.currentValue=apAltitude.defaultValue;
-controlType apCourse.currentValue=apCourse.defaultValue;
-controlType apIAS.currentValue=apIAS.defaultValue;
-controlType apMach.currentValue=apMach.defaultValue; //need to careful to multiply by the power when handling.
-controlType apVerticalSpeed.currentValue=apVerticalSpeed.defaultValue;;
-//could be expanded to include the momentaries too
+  apAltitude.currentValue = apAltitude.defaultValue;
+  apCourse.currentValue = apCourse.defaultValue;
+  apIAS.currentValue = apIAS.defaultValue;
+  apMach.currentValue = apMach.defaultValue; //need to careful to multiply by the power when handling.
+  apVerticalSpeed.currentValue = apVerticalSpeed.defaultValue;;
+  //could be expanded to include the momentaries too
 }
 
 /*
-Function to test the status of all the LEDs/displays of the autopilot.
-Testing will interrupt normal behaviour but should resume to previous settings upon completion
+  Function to test the status of all the LEDs/displays of the autopilot.
+  Testing will interrupt normal behaviour but should resume to previous settings upon completion
 */
 void AP_IBIT()
 {
-IBITRunning=true;
-max7219.IBIT(); sets all the displays to '8' and decimal points
-//device74hc595.test(); turns on all the LEDs
-IBITRunning=false;
+  IBITRunning = true;
+  max7219Control.IBIT(); //sets all the displays to '8' and decimal points
+  //device74hc595.test(); turns on all the LEDs
+  IBITRunning = false;
 }
 
 /*
-char getChar()
-{
+  char commonFunction.getChar()
+  {
   while (Serial.available() == 0);
   return ((char)Serial.read());
-}
+  }
 
-int getNumber(int numChars, int iPower)
-{
+  int getNumber(int numChars, int iPower)
+  {
   /*
     will return the integer of the number of 'numChars' characters, and multiply by iPower if its a decimal
     INPUTS
           int numChars - the number of characters to read for the value
           int iPower - the power to 10 which to multiply the number by to enable only long numbers
-  */
+
   int cTempChar = 0;
   String lclStrTemp = "";
   float fTemp;
   for (int iLoopVar = 0; iLoopVar < numChars; iLoopVar++)
   {
-    cTempChar = getChar();
+    cTempChar = commonFunction.getChar();
     if (((cTempChar > 0) && (cTempChar < 10)) || (cTempChar == '.') || (cTempChar == '-'))
     {
-      lclStrTemp += cTempChar;  //do i need to exit the loop if 'getChar' is an '=' or other qualifier i.e. not a number or a valid character such as '-'
+      lclStrTemp += cTempChar;  //do i need to exit the loop if 'commonFunction.getChar' is an '=' or other qualifier i.e. not a number or a valid character such as '-'
     }
     else break;
   }
   fTemp = lclStrTemp.toFloat();
   fTemp = fTemp * pow(10, iPower);
   return ((int)fTemp);
-}
+  }
 
-int getInt(int fNumChars, int fPower = 0)
-{
+  int commonFunction.getInt(int fNumChars, int fPower = 0)
+  {
   //function to iterate the fNumChars number of characters and return the integer value i.e. for headings, altitude, vert speed
 
   String sTemp = "";
   //need to get next fNumChars characters
   for (int iLoopVar = 0; iLoopVar < fNumChars; iLoopVar++)
   {
-    sTemp += getChar();
+    sTemp += commonFunction.getChar();
   }
   if (fPower > 0)
   {
@@ -252,30 +254,31 @@ int getInt(int fNumChars, int fPower = 0)
     sTemp = String(temp, 0);
   }
   return (sTemp.toInt());
-}
+  }
 
-long getLng(int fNumChars)
-{
+  long commonFunction.getLong(int fNumChars)
+  {
   //function to iterate the fNumChars number of characters and return the integer value i.e. for headings, altitude, vert speed
 
   String sTemp = "";
   //need to get next fNumChars characters
   for (int iLoopVar = 0; iLoopVar < fNumChars; iLoopVar++)
   {
-    sTemp += getChar();
+    sTemp += commonFunction.getChar();
   }
   return (sTemp.toFloat());
-}
+  }
+
 */
 
 void processSwitchPositions()  //will become the processor for switch statuses
 {
-  /* IBIT */  
+  /* IBIT */
   if (autoPilotSwitches.isLOW2HIGH(AP_TEST_BUTTON)) // value has transitioned from 0->1
   {
     AP_IBIT();
   }
-  
+
   /* MAIN AUTOPILOT */
   if (autoPilotSwitches.isLOW2HIGH(AP_AUTOPILOT_HOLD))
     AUTOPILOT_WRITE(AP_AUTOPILOT_HOLD); //calls procedure to toggle the current state.
@@ -389,25 +392,25 @@ void AUTOPILOT_READ()
 
   long iNextChar;
   bool bTemp;
-  iCodeIn = getChar(); //get next character from received string
+  iCodeIn = commonFunction.getChar(); //get next character from received string
   switch (iCodeIn)
   {
     case 'a': //autopilot active
-      { 
-        iNextChar = getChar();
+      {
+        iNextChar = commonFunction.getChar();
         iStatus = (int)iNextChar;
-//        device74HC565.setLed(AUTOPILOT_STATUS, iStatus - 48);
+        //        device74HC565.setLed(AUTOPILOT_STATUS, iStatus - 48);
         break;
       }
     case 'b': //autopilot altitude setting
-      { 
-	apAltitude.currentValue = getLng(5);
+      {
+        apAltitude.currentValue = commonFunction.getLong(5);
         max7219Control.displayNumber(DEVICEID_ALTITUDE, apAltitude.currentValue, 4, 5);
         break;
       }
     case 'c': //autopilot Vertical Speed Set
-      { 
-        apVerticalSpeed.currentValue = getInt(5, 0);
+      {
+        apVerticalSpeed.currentValue = commonFunction.getInt(5, 0);
         int iNegative = 0;
         if (apVerticalSpeed.currentValue < 0)
         {
@@ -422,116 +425,116 @@ void AUTOPILOT_READ()
       }
     case 'd': //autopilot Heading Set
       {
-        apHeading.currentValue = getInt(3, 0);
+        apHeading.currentValue = commonFunction.getInt(3, 0);
         HDGorCOURSE();
         break;
       }
     case 'e': //autopilot Course Set
       {
-        apCourse.currentValue = getInt(3, 0);
+        apCourse.currentValue = commonFunction.getInt(3, 0);
         HDGorCOURSE();
         break;
       }
     case 'f': //IAS setting
       {
-        apIAS.currentValue = getInt(3, 0);
+        apIAS.currentValue = commonFunction.getInt(3, 0);
         IASorMACH();
         break;
       }
     case 'g': //MACH setting
       {
-        apMach.currentValue = getInt(4, 2);
+        apMach.currentValue = commonFunction.getInt(4, 2);
         IASorMACH();
         break;
       }
     case 'h': //autopilot MACH Hold
-      { 
-        iNextChar = getChar();
+      {
+        iNextChar = commonFunction.getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(MACHHOLD_STATUS, iStatus - 48);
         break;
       }
 
     case 'j': //autopilot Heading Hold
-      { 
-        iNextChar = getChar();
+      {
+        iNextChar = commonFunction.getChar();
         iStatus = (int)iNextChar;
         //       device74HC565.setLed(HEADINGHOLD_STATUS, iStatus - 48);
         break;
       }
     case 'k': //autopilot Altitude Hold
-      { 
-        iNextChar = getChar();
+      {
+        iNextChar = commonFunction.getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(ALTITUDEHOLD_STATUS, iStatus - 48);
         break;
       }
     case 'l': //autopilot GPS drives NAV1
-      { 
-        iNextChar = getChar();
+      {
+        iNextChar = commonFunction.getChar();
         iStatus = (int)iNextChar;
         //       device74HC565.setLed(GPSDRIVESNAV1HOLD_STATUS, iStatus - 48);
         break;
       }
     case 'm': //autopilot Approach Hold
-      { 
-        iNextChar = getChar();
+      {
+        iNextChar = commonFunction.getChar();
         iStatus = (int)iNextChar;
         //      device74HC565.setLed(APPROACHHOLD_STATUS, iStatus - 48);
         break;
       }
     case 'n': //autopilot Backcourse
-      { 
-        iNextChar = getChar();
+      {
+        iNextChar = commonFunction.getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(BACKCOURSEHOLD_STATUS, iStatus - 48);
         break;
       }
     case 'o': //autopilot NAV1 Lock
-      { 
-        iNextChar = getChar();
+      {
+        iNextChar = commonFunction.getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(NAV1HOLD_STATUS, iStatus - 48);
         break;
       }
     case 'p': //autopilot Wing Leveller
-      { 
-        iNextChar = getChar();
+      {
+        iNextChar = commonFunction.getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(WINGLEVELLERHOLD_STATUS, iStatus - 48);
         break;
       }
     case 'q': //autopilot Flight Director
-      { 
-        iNextChar = getChar();
+      {
+        iNextChar = commonFunction.getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(FLIGHTDIRECTORHOLD_STATUS, iStatus - 48);
         break;
       }
     case 'r': //autopilot Glideslope Hold
-      { 
-        iNextChar = getChar();
+      {
+        iNextChar = commonFunction.getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(GLIDESLOPEHOLD_STATUS, iStatus - 48);
         break;
       }
     case 's': //autopilot IAS Hold
-      { 
-        iNextChar = getChar();
+      {
+        iNextChar = commonFunction.getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(IASHOLD_STATUS, iStatus - 48);
         break;
       }
     case 't': //autopilot Autothrottle Armed
-      { 
-        iNextChar = getChar();
+      {
+        iNextChar = commonFunction.getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(AUTOTHROTTLEARMED_STATUS, iStatus - 48);
         break;
       }
     case 'u': //autopilot Autothrottle Active
-      { 
-        iNextChar = getChar();
+      {
+        iNextChar = commonFunction.getChar();
         iStatus = (int)iNextChar;
         //        device74HC565.setLed(AUTOTHROTTLEHOLD_STATUS, iStatus - 48);
         break;
@@ -672,7 +675,7 @@ void IASorMACH()
   }
   else if (autoPilotSwitches.isHIGH(AP_IASMACH_SWITCH))
   {
-    //apMach = getInt(4, 2);
+    //apMach = commonFunction.getInt(4, 2);
     max7219Control.displayNumber(DEVICEID_MACH, apMach.currentValue, 1, 3, 2);
   }
   else Serial.println("### Error in IASMACH switch detection ###");

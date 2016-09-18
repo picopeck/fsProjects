@@ -47,7 +47,7 @@ void PImax7219Control::initDevices()
 	delay(DELAY_TIME_uS);
 }
 
-void PImax7219Control::IBIT();
+void PImax7219Control::IBIT()
 {
 	Serial.print("IBIT - Display Test Start...");
 	for (int address = 0; address < _numDevices; address++)

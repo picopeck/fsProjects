@@ -2,7 +2,7 @@
   PeckIndustries common functions	
   KEYWORDS DECLARATIONS	
 */	
-getChar KEYWORD2
-getNumber KEYWORD2
-getInt KEYWORD2
-getLng KEYWORD2
+getChar KEYWORD1
+getNumber KEYWORD1
+getInt KEYWORD1
+getLng KEYWORD1

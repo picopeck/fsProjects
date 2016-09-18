@@ -8,10 +8,10 @@ PIFunctions
 class PIFunctions
 {
 public:
-  char getChar()
-  int getNumber(int numChars, int iPower)
-  int getInt(int fNumChars, int fPower = 0)
-  long getLng(int fNumChars)
+	char getChar();
+	int getNumber(int numChars, int iPower);
+	int getInt(int fNumChars, int fPower = 0);
+	long getLong(int fNumChars);
 };
 
 #endif
