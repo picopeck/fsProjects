@@ -1,26 +1,9 @@
 /*
-  PeckIndustries interface to flight sim for Autopilot module.
+  PeckIndustries interface to flight sim for RadioStack module.
   Displays and LED controlling done by Arduino Uno
   Code taken from a multitude of sources, mainly Jim for link2fs program, and Arduino samples.
   Receives inputs via link2fs on the status of the autopilot system.
-  v2.1.2 - omitted generic functions and added PIFunctions.h as a common repository.
-  v2.1.1 - prepared for 74HC595 device and added IBIT on startup
-  v2.1.0 - To date all the encoders will cause fs to simply increment/decrement rather than set bespoke values.
-         Therefore the cycle of events will always be to check for a receipt of data from link2fs and process accordingly.
-         Encoder/button presses will cause an output via link2fs to fs, and a subsequent return of status via the read will be actioned.
-         For standalone or non-link2fs applications, the user will need to know how to decode the comms coming out of the Arduino.  These are in accordance with link2fs so will point to that, but 	an independent decoder could be used for other sims etc.
-
-  v2.0.0 - Major change to use a single array for controls/switches/encoder etc
-         built with libraries
-         -> Controls v1.0.0
-         -> max7219Control v1.0.0
-         -> ShiftInControl v1.0.0
-         -> ShiftOutControl v1.0.0
-  v1.0.0 - built with libraries
-         -> Controls v1.0.0
-         -> max7219Control v1.0.0
-         -> ShiftInControl v1.0.0
-         -> ShiftOutControl v1.0.0
+  v23/09/16 - omitted generic functions and added PIFunctions.h as a common repository.
 */
 
 #include "PIFunctions.h"
@@ -30,27 +13,34 @@
 const int POLL_DELAY_MSEC = 1;
 
 // 7 segment device IDs
-const int DEVICEID_VERTICALSPEED = 2;
-const int DEVICEID_ALTITUDE = 1;
-const int DEVICEID_HEADING = 0;
-const int DEVICEID_COURSE = 0;
-const int DEVICEID_IAS = 0;
-const int DEVICEID_MACH = 0;
+const int DEVICEID_COMM1 = 0;
+const int DEVICEID_COMM1_STBY = 1;
+const int DEVICEID_COMM2 = 2;
+const int DEVICEID_COMM2_STBY = 3;
+const int DEVICEID_NAV1 = 4;
+const int DEVICEID_NAV1_STBY = 5;
+const int DEVICEID_NAV2 = 6;
+const int DEVICEID_NAV2_STBY = 7;
+const int DEVICEID_ADF = 8;
+const int DEVICEID_XPDR = 8;
+// 1 too many displays.  is there enough spare pins to have another set?  Or use a common 'standby' radio
 
 typedef struct
 {
   long currentValue;
   long defaultValue = 0;
+  long standbyValue;
   //plus any others
 } controlType;
 
 //setup variables to hold local state of variable things
-controlType apAltitude;
-controlType apCourse;
-controlType apHeading;
-controlType apIAS;
-controlType apMach; //need to careful to multiply by the power when handling.
-controlType apVerticalSpeed;
+//need to careful to multiply by the power when handling.
+controlType rsCOMM1;
+controlType rsCOMM2;
+controlType rsNAV1;
+controlType rsNAV2;
+controlType rsADF; 
+controlType rsXPDR;
 
 //etc...
 #define ON 1
@@ -66,37 +56,26 @@ controlType apVerticalSpeed;
 
 enum eAPCONTROL
 {
-  AP_IASMACH_UP,
-  AP_IASMACH_DOWN,
-  AP_IASMACH_SWITCH,
-  AP_ALTITUDE_UP,
-  AP_ALTITUDE_DOWN,
-  AP_ALTITUDE_HOLD,
-  AP_HEADINGCOURSE_UP,
-  AP_HEADINGCOURSE_DOWN,
-  AP_HEADING_HOLD,
-  AP_COURSE_HOLD,
-  AP_HEADINGCOURSE_SWITCH,
-  AP_IASMACH_HOLD,
-  AP_VERTICALSPEED_UP,
-  AP_VERTICALSPEED_DOWN,
-  AP_VERTICALSPEED_HOLD,
-  AP_AUTOPILOT_HOLD,
-  AP_AUTOTHROTTLE_SWITCH,
-  AP_FLIGHTDIRECTOR_SWITCH,
-  AP_APPROACH_HOLD,
-  AP_BACKCOURSE_HOLD,
-  AP_NAV1_HOLD,
-  AP_GPSDRIVESNAV1_HOLD,
-  AP_WINGLEVELLER_HOLD,
-  AP_GLIDESLOPE_HOLD,
-  AP_AUTOTHROTTLEARMD_HOLD,
-  AP_TOGA_HOLD,
-  AP_TEST_BUTTON,
+  AP_COMM1_UP,
+  AP_COMM1_DOWN,
+  AP_COMM1_STBY_SWITCH,
+  AP_COMM2_UP,
+  AP_COMM2_DOWN,
+  AP_COMM2_STBY_SWITCH,
+  AP_NAV1_UP,
+  AP_NAV1_DOWN,
+  AP_NAV1_STBY_SWITCH,
+  AP_NAV2_UP,
+  AP_NAV2_DOWN,
+  AP_NAV2_STBY_SWITCH,
+  AP_ADF_UP,
+  AP_ADF_DOWN,
+  AP_XPDR_UP,
+  AP_XPDR_DOWN,
   // indexes into the 74HC165 control, therefore they must be in the same order as connected.  32 Max per PI74HC165Control class.
 };
 
-enum eAP_HOLD_STATUSES
+/*enum eAP_HOLD_STATUSES
 {
   AUTOPILOT_STATUS,
   ALTITUDEHOLD_STATUS,
@@ -115,14 +94,14 @@ enum eAP_HOLD_STATUSES
   AUTOTHROTTLEHOLD_STATUS,
   TOGAHOLD_STATUS
   // indexes into the 74HC565 array
-};
+};*/
 
 // ### Pin allocations ###
 //7 segment output displays
 int max7219DataIn = 13;
 int max7219CLK = 12;
 int max7219LOAD = 11;
-#define NUMBER_OF_MAX7219_DEVICES 3
+#define NUMBER_OF_MAX7219_DEVICES 8
 
 PImax7219Control max7219Control = PImax7219Control(max7219DataIn, max7219CLK, max7219LOAD, NUMBER_OF_MAX7219_DEVICES);
 PIFunctions commonFunction;
@@ -135,13 +114,13 @@ int dataPin74HC165 = 6; // Q7 on chip, pin 9
 int clockPin74HC165 = 8; //CP on chip, pin 2
 #define NUMBER_OF_SHIFT_REGISTERS_74HC165 4 //although can handle up to 8, the return 'value' is limited to a long i.e. 32 (4 devices)
 
-PI74HC165Control autoPilotSwitches = PI74HC165Control(pLoadPin74HC165, clockEnablePin74HC165, dataPin74HC165, clockPin74HC165, NUMBER_OF_SHIFT_REGISTERS_74HC165);
-//unsigned long stateAutoPilotSwitches;
+PI74HC165Control radioStackSwitches = PI74HC165Control(pLoadPin74HC165, clockEnablePin74HC165, dataPin74HC165, clockPin74HC165, NUMBER_OF_SHIFT_REGISTERS_74HC165);
+//unsigned long stateRadioStackSwitches;
 
 int iCodeIn, iStatus;
 bool IBITRunning = false;
-void AUTOPILOT_READ(void);
-void AUTOPILOT_WRITE(eAPCONTROL);
+void RADIOSTACK_READ(void);
+void RADIOSTACK_WRITE(eAPCONTROL);
 void initDefaults(void);
 void processSwitchPositions(void);
 
@@ -162,17 +141,17 @@ void loop()
       iCodeIn = commonFunction.getChar();
       if (iCodeIn == '=') //sign for Autopilot functions
       {
-        AUTOPILOT_READ();
+        RADIOSTACK_READ();
       }
     }
 
-    if (autoPilotSwitches.readState() != autoPilotSwitches.previousState()) //value is different
+    if (radioStackSwitches.readState() != radioStackSwitches.previousState()) //value is different
     {
       Serial.println("*Pin Value change detected\r\n");
 
       processSwitchPositions(); //processes the current status of the switches
 
-      autoPilotSwitches.update();//sets the previous switch states to the current ones.
+     radioStackSwitches.update();//sets the previous switch states to the current ones.
     }
 
     //device74HC595.update(); // sends the bytes to the 74HC565 driver
