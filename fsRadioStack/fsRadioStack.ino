@@ -488,7 +488,7 @@ long readFrequency(eRadios fRadio)
                    else // all other radios will be 6 digits
                  {
                    //length will be 6 characters
-                   tempFrequency=commonFunction.getInt(6,3); // need to add a decimal clause in the main PIFunctions to pass bacl a long.
+                   tempFrequency=commonFunction.getLong(6,3);
                  }
                    if (DEBUG_ON) Serial.println(tempFrequency);
                    if (DEBUG_ON) Serial.println("Complete.");
