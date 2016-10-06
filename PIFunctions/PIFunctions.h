@@ -9,9 +9,9 @@ class PIFunctions
 {
 public:
 	char getChar();
-	int getNumber(int numChars, int iPower);
+	int getNumber(int numChars, int iPower=0);
 	int getInt(int fNumChars, int fPower = 0);
-	long getLong(int fNumChars);
+	long getLong(int fNumChars, int fPower =0);
 };
 
 #endif
