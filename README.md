@@ -1,7 +1,10 @@
 # fsProjects
 Container for Flight Sim Projects
-fsAutopilot
+fsAutoPilot
 ..fsAutopilot.ino
+
+fsRadioStack
+..fsRadioStack
 
 in the Arduino folder
 ..\arduino\libraries\max7219Controls
