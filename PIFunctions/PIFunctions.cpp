@@ -57,7 +57,7 @@ int PIFunctions::getInt(int fNumChars, int fPower)
 	return (sTemp.toInt());
 }
 
-long PIFunctions::getLong(int fNumChars)
+long PIFunctions::getLong(int fNumChars, int fPower)
 {
 	//function to iterate the fNumChars number of characters and return the integer value i.e. for headings, altitude, vert speed
 
@@ -66,6 +66,13 @@ long PIFunctions::getLong(int fNumChars)
 	for (int iLoopVar = 0; iLoopVar < fNumChars; iLoopVar++)
 	{
 		sTemp += getChar();
+	}
+if (fPower > 0)
+	{
+		float temp;
+		temp = (sTemp.toFloat());
+		temp *= pow(10, fPower);
+		sTemp = String(temp, 0);
 	}
 	return (sTemp.toFloat());
 }
