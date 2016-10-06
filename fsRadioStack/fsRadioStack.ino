@@ -26,8 +26,6 @@ typedef struct
   long minFrequency;
 } radioType;
 
-//enum eAnalogInputs {A0, A1, A2, A3, A4, A5, A6, A7};
-
 // all the radio controls
 enum eRadios {ERROR, COMM1, COMM2, NAV1, NAV2, ADF, XPDR};
 
@@ -114,31 +112,6 @@ void loop()
 }
 
 
-/*
-  returns the switch position that the given analog input has detected
-  int switchPosition : the index 0 to 7 of the available analog inputs on the Arduino UNO that has the required switch mounted.
-  int numContacts : the number of contacts that the switch has.
-  Usage : call the function and assign a variable to hold the returned switch position from 0 to 'numContacts'.  0 indicates an error.  switch positions are number clockwise, relative to the first position.  Assumption is that the switch can't go 360degs.
-*/
-int analogSwitchPosition(int fIndex, int numContacts)
-{
-  if (DEBUG_ON) Serial.println("analogSwitchPositions...");
-  int switchPosition = ERROR; //ERROR condition, it means it hasn't found a valid position.
-  int scale = (1024 / numContacts);
-  int pinVoltage; //variable to store the sampled digitised voltage 0-1023 full scale.
-  pinVoltage = analogRead(fIndex);
-  for (int i = 0 ; i < numContacts; i++)
-  {
-    //if ((pinVoltage >= scale * i) && (pinVoltage <= (((scale * i) + scale) – 1)))
-    if ((pinVoltage>=scale*i) && (pinVoltage<=((scale*i)+scale)))
-    {
-      switchPosition = i + 1;
-    }
-    //need to understand the hysteresis/noise  on the sampler, hopefully the samples will be in the middle of the range.
-  }
-  return (switchPosition);
-  if (DEBUG_ON) Serial.println("Complete.");
-}
 
 void RS_IBIT()
 {
