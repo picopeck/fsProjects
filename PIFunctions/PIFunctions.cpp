@@ -86,12 +86,14 @@ if (fPower > 0)
 */
 int PIFunctions::analogSwitchPosition(int fIndex, int numContacts)
 {
-  Serial.println("analogSwitchPositions...");
-  int switchPosition = ERROR; //ERROR condition, it means it hasn't found a valid position.
+  //Serial.println("analogSwitchPositions...");
+  int switchPosition = 0; //ERROR condition, it means it hasn't found a valid position.
   int scale = (1024 / numContacts);
   int pinVoltage; //variable to store the sampled digitised voltage 0-1023 full scale.
   pinVoltage = analogRead(fIndex);
   Serial.println(pinVoltage);
+  //exhibited some spikes nbetween changes
+  //[possibly need to add some hysteresis to prevent constant switching or set bounds larger, theyre a bit definitive
   for (int i = 0 ; i < numContacts; i++)
   {
     if ((pinVoltage>=scale*i) && (pinVoltage<=((scale*i)+scale)))

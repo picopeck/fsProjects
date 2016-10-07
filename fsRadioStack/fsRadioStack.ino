@@ -96,7 +96,7 @@ void loop()
   {
     // during 'loop' cycle, need to check which radio is selected from the main switch
     // if more than 1 index is used, then this could be enumerated too, but as only 1 for now, hard indexed
-    activeRadio = analogSwitchPosition(A0, 6); // returns the switch position that is selected for the indexed switch, where 0 is an error. i.e. the active radio
+    activeRadio = commonFunction.analogSwitchPosition(0, 6); // returns the switch position that is selected for the indexed switch, where 0 is an error. i.e. the active radio
     if (activeRadio == XPDR) bWasXPDR = true;
 
     if (radioStackSwitches.readState() != radioStackSwitches.previousState()) //switches have changed
