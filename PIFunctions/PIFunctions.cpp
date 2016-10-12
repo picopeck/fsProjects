@@ -1,5 +1,6 @@
 /*
 Common Functions
+v10/10/16 - added the analogSwitchFunction
 */
 
 #include "PIFunctions.h"
@@ -67,7 +68,7 @@ long PIFunctions::getLong(int fNumChars, int fPower)
 	{
 		sTemp += getChar();
 	}
-if (fPower > 0)
+	if (fPower > 0)
 	{
 		float temp;
 		temp = (sTemp.toFloat());
@@ -83,24 +84,18 @@ if (fPower > 0)
   int switchPosition : the index 0 to 7 of the available analog inputs on the Arduino UNO that has the required switch mounted.
   int numContacts : the number of contacts that the switch has.
   Usage : call the function and assign a variable to hold the returned switch position from 0 to 'numContacts'.  0 indicates an error.  switch positions are number clockwise, relative to the first position.  Assumption is that the switch can't go 360degs.
-*/
+  +5V goes to pin 1 of switch
+  GND goes to pin n of switch
+  A0 goes to GND pin of switch
+  */
 int PIFunctions::analogSwitchPosition(int fIndex, int numContacts)
 {
-  //Serial.println("analogSwitchPositions...");
-  int switchPosition = 0; //ERROR condition, it means it hasn't found a valid position.
-  int scale = (1024 / numContacts);
-  int pinVoltage; //variable to store the sampled digitised voltage 0-1023 full scale.
-  pinVoltage = analogRead(fIndex);
-  Serial.println(pinVoltage);
-  //exhibited some spikes nbetween changes
-  //[possibly need to add some hysteresis to prevent constant switching or set bounds larger, theyre a bit definitive
-  for (int i = 0 ; i < numContacts; i++)
-  {
-    if ((pinVoltage>=scale*i) && (pinVoltage<=((scale*i)+scale)))
-    {
-      switchPosition = i + 1;
-    }
-    //need to understand the hysteresis/noise  on the sampler, hopefully the samples will be in the middle of the range.
-  }
-  return  (switchPosition);
+	//Serial.println("analogSwitchPositions...");
+	int switchPosition = 0; //ERROR condition, it means it hasn't found a valid position.
+	int slope = (1024 / (numContacts - 1));
+	int intercept = slope * numContacts;
+	int pinVoltage; //variable to store the sampled digitised voltage 0-1023 full scale.
+	pinVoltage = analogRead(fIndex);
+    // back calculate x to get the switch position.  negative slope as the slope is negative
+	return  ((pinVoltage - intercept) / (-slope));
 }

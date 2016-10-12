@@ -22,6 +22,7 @@ public:
 	bool isHIGH(int pinIndex);
 	bool isLOW(int pinIndex);
 	int transitionDirection();
+	void init();
 
 #define INCREMENT 1
 #define DECREMENT -1

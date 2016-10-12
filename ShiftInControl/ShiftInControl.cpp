@@ -31,13 +31,13 @@ PI74HC165Control::PI74HC165Control(int fLoadPin, int fClockEnable, int fDataIn, 
 	pinMode(_dataInPin, INPUT);
 	digitalWrite(_clockPin, LOW);
 	digitalWrite(_loadPin, HIGH);
-
+	_numDevices = fNumDevices;
 	if (fNumDevices > 8) _numDevices = 8;
 	PULSE_WIDTH_USEC = 5;
 
 	DATA_WIDTH_74HC165 = _numDevices * 8;
-}
 
+}
 
 /*
 used to updatte the oldvalues with the latest read values.  To be called after a .readState such that differences can be known for encoder purposes etc.
@@ -68,7 +68,8 @@ used to print the status of the indexes for debug purposes
 */
 void PI74HC165Control::printState()
 {
-	Serial.print("Pin States:\r\n");
+	Serial.println("Pin States:");
+	Serial.println(DATA_WIDTH_74HC165);
 	for (int i = 0; i < DATA_WIDTH_74HC165; i++) //this compensates for the length of DATA_WIDTH_74HC165 i.e.	
 	{
 		Serial.print(" Pin-");
@@ -91,7 +92,7 @@ unsigned long PI74HC165Control::readState()
 {
 	unsigned long bitVal;
 	unsigned long bytesVal = 0;
-
+	//Serial.println("FUNCTION...readState");
 	//trigger a parallel read to latch the current states	
 	digitalWrite(_clockEnablePin, HIGH);
 	digitalWrite(_loadPin, LOW);
@@ -113,6 +114,7 @@ unsigned long PI74HC165Control::readState()
 	}
 	_curValues = bytesVal; //reads the button states	
 	return (bytesVal);
+	//Serial.println("...End.");
 }
 /*
 returns the previously stored state.  Would need a .update prior to ensure its current
@@ -258,8 +260,8 @@ returns the encoderDirection as an integer
 int PI74HC165Control::encoderDirection(int pinIndexCW, int pinIndexCCW)
 {
 	int lclDirection = 0;
-	if (isClockwise(pinIndexCW,pinIndexCCW)) lclDirection = INCREMENT;
-	if (isCounterClockwise(pinIndexCW,pinIndexCCW)) lclDirection = DECREMENT;
+	if (isClockwise(pinIndexCW, pinIndexCCW)) lclDirection = INCREMENT;
+	if (isCounterClockwise(pinIndexCW, pinIndexCCW)) lclDirection = DECREMENT;
 
 	return (lclDirection);
 }
@@ -270,7 +272,7 @@ returns whether the indexed pin has gone from low to high.
 
 bool PI74HC165Control::isLOW2HIGH(int pinIndex)
 {
-	return (readPin(pinIndex,true) < readPin(pinIndex));
+	return (readPin(pinIndex, true) < readPin(pinIndex));
 }
 
 /*
@@ -278,7 +280,7 @@ returns whether the indexed pin has gone from low to high.
 */
 bool PI74HC165Control::isHIGH2LOW(int pinIndex)
 {
-	return (readPin(pinIndex,true) > readPin(pinIndex));
+	return (readPin(pinIndex, true) > readPin(pinIndex));
 }
 
 
