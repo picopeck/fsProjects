@@ -11,3 +11,6 @@ in the Arduino folder
 ..\arduino\libraries\ShiftInControl
 ..\arduino\libraries\ShiftOutControl
 ..\arduino\libraries\PIFunctions
+
+Future ideas...
+If any radio or autopilot function is not available I. E. Off, blank the display 
