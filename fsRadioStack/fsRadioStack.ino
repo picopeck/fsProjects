@@ -27,6 +27,7 @@ typedef struct
 
 // all the radio controls
 enum eRadios {NONE, COMM1, COMM2, NAV1, NAV2, ADF, XPDR};
+char* eRadiosStrings[] = {"NONE","COMM1","COMM2","NAV1","NAV2","ADF","XPDR"};
 
 enum eRSCONTROL { RS_FREQUENCY_UP, RS_FREQUENCY_DOWN, RS_TEST_BUTTON, RS_TRANSFER_BUTTON, RS_MAJOR_FREQUENCY_SWITCH};
 
