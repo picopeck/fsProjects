@@ -4,5 +4,7 @@
 */	
 	
 PImax7219Control	KEYWORD1
-testDisplay	KEYWORD2
 displayNumber	KEYWORD2
+initDevices	KEYWORD2
+IBIT	KEYWORD2
+blankDisplay	KEYWORD2

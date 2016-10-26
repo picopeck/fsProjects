@@ -10,9 +10,9 @@
 #include <Arduino.h>
 #include <Print.h>
 
-PImax7219Control::PImax7219Control(int dataPin, int clkPin, int csPin, int numDevices) : _deviceHandle(dataPin, clkPin, csPin, numDevices) 
+PImax7219Control::PImax7219Control(int dataPin, int clkPin, int csPin, int numDevices) : _deviceHandle(dataPin, clkPin, csPin, numDevices)
 {
-//can't run setup as the contructor hasnt finished yet!
+	//can't run setup as the contructor hasnt finished yet!
 }
 
 
@@ -24,7 +24,7 @@ void PImax7219Control::initDevices()
 	_numDevices = _deviceHandle.getDeviceCount();
 	Serial.println(_numDevices);
 	//Serial.println(" display device(s)...");
-		for (int address = 0; address < _numDevices; address++)
+	for (int address = 0; address < _numDevices; address++)
 	{
 		_deviceHandle.shutdown(address, false); 		//wake up the MAX72XX from power-saving mode
 		_deviceHandle.setIntensity(address, 8);//set a medium brightness for the Leds
@@ -33,13 +33,13 @@ void PImax7219Control::initDevices()
 		//_deviceHandle.setScanLimit(address, 8);
 		/*
 		for (int j = 0; j < 8; j++)
-		{ //turns on all digits and decimal points	
-			_deviceHandle.setChar(address, j, '8', true);
+		{ //turns on all digits and decimal points
+		_deviceHandle.setChar(address, j, '8', true);
 		}
 		delay(DELAY_TIME_uS);
 		for (int j = 0; j < 8; j++)
-		{ //turns on all digits and decimal points	
-			_deviceHandle.setChar(address, j, ' ', false);
+		{ //turns on all digits and decimal points
+		_deviceHandle.setChar(address, j, ' ', false);
 		}*/
 	}
 	IBIT();
@@ -52,14 +52,14 @@ void PImax7219Control::IBIT()
 	Serial.print("IBIT - Display Test Start...");
 	for (int address = 0; address < _numDevices; address++)
 	{
-		for (int j=0;j<8;j++)
+		for (int j = 0; j < 8; j++)
 		{// turns on all digits and decimal points
-			_deviceHandle.setChar(address, j,'8',true);
+			_deviceHandle.setChar(address, j, '8', true);
 		}
 		delay(DELAY_TIME_uS);
-		for (int j=0;j<8;j++)
+		for (int j = 0; j < 8; j++)
 		{ // turn them all off again
-			_deviceHandle.setChar(address,j,' ',false);
+			_deviceHandle.setChar(address, j, ' ', false);
 		}
 	}
 	Serial.println("Completed.");
@@ -85,7 +85,7 @@ void PImax7219Control::IBIT()
 
   */
 
-void PImax7219Control::displayNumber(int fDeviceID, long fNumber, int fStartIndex, int fLength, int fPower, int fNegative, bool fLeadingZero, bool fDEBUG)
+void PImax7219Control::displayNumber(int fDeviceID, long fNumber, int fStartIndex, int fLength, int fPower, int fNegative, bool fLeadingZero, bool fDisplayDecimalAtZeroPower)
 {
 	int lclDigits[8]; //length of a max7219 device, each digit is stored in a single entry of the array	
 
@@ -106,18 +106,18 @@ void PImax7219Control::displayNumber(int fDeviceID, long fNumber, int fStartInde
 	  tenThousands, thousands, hundreds, tens, units
 	  Assumes an integer number has been passed.  relies on pre-processing on fNumber
 	  */
-	if (fDEBUG) Serial.println("lclDigits");
+	//if (fDEBUG) Serial.println("lclDigits");
 	for (int iLoopVar = 0; iLoopVar < 8; iLoopVar++)
 	{
 		lclDigits[iLoopVar] = ((int)(lclNumber % 10));
 		lclNumber = lclNumber / 10;
 		//_deviceHandle.setDigit(_numDevices-1, iLoopVar, (byte)lclNumber, false);
-		if (fDEBUG)
-		{
-			Serial.print(iLoopVar);
-			Serial.print(",");
-			Serial.println(lclDigits[iLoopVar]);
-		}
+		//if (fDEBUG)
+		//{
+		//	Serial.print(iLoopVar);
+		//	Serial.print(",");
+		//	Serial.println(lclDigits[iLoopVar]);
+		//}
 	}
 
 	int digitIndex = 0;
@@ -153,7 +153,13 @@ void PImax7219Control::displayNumber(int fDeviceID, long fNumber, int fStartInde
 		}
 		else
 		{
-			_deviceHandle.setDigit(fDeviceID, digitIndex, (byte)lclDigits[digitsArrayIndex], false);
+			if (!fDisplayDecimalAtZeroPower) _deviceHandle.setDigit(fDeviceID, digitIndex, (byte)lclDigits[digitsArrayIndex], false);
+			else
+			{
+				if (i == (lclStartIndex + tempLength) - fPower - 1)
+					_deviceHandle.setDigit(fDeviceID, digitIndex, (byte)lclDigits[digitsArrayIndex], true);
+				else _deviceHandle.setDigit(fDeviceID, digitIndex, (byte)lclDigits[digitsArrayIndex], false);
+			}
 		}
 	}
 
@@ -178,4 +184,9 @@ void PImax7219Control::displayNumber(int fDeviceID, long fNumber, int fStartInde
 		else {}
 	}
 
+}
+
+void PImax7219Control::blankDisplay(int fDeviceID)
+{
+	_deviceHandle.clearDisplay(fDeviceID);
 }
