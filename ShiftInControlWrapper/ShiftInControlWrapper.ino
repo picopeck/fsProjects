@@ -8,7 +8,7 @@ Tester for ShiftInControl
 #include "ShiftInControl.h"
 
 
-const int POLL_DELAY_MSEC = 1000;
+const int POLL_DELAY_MSEC = 200;
 
 enum eAPCONTROL
 {
@@ -49,7 +49,7 @@ int pLoadPin74HC165 = 7; //PL on chip, pin 1
 int clockEnablePin74HC165 = 9; //CE on chip, pin 15
 int dataPin74HC165 = 6; // Q7 on chip, pin 9
 int clockPin74HC165 = 8; //CP on chip, pin 2
-#define NUMBER_OF_SHIFT_REGISTERS_74HC165 1 //although can handle up to 8, the return 'value' is limited to a long i.e. 32 (4 devices)
+#define NUMBER_OF_SHIFT_REGISTERS_74HC165 2 //although can handle up to 8, the return 'value' is limited to a long i.e. 32 (4 devices)
 
 PI74HC165Control autoPilotSwitches = PI74HC165Control(pLoadPin74HC165, clockEnablePin74HC165, dataPin74HC165, clockPin74HC165, NUMBER_OF_SHIFT_REGISTERS_74HC165);
 
@@ -61,12 +61,15 @@ void setup()
 
 void loop()
 {
-Serial.println(timer);
-    autoPilotSwitches.printState();
+//Serial.println(timer);
+    if (autoPilotSwitches.readState()!=autoPilotSwitches.previousState())
+    {
+      autoPilotSwitches.printState();
+    
 
     autoPilotSwitches.update();//sets the previous switch states to the current ones.
-
+    }
   delay(POLL_DELAY_MSEC);
-Serial.println(autoPilotSwitches.readState());
+//Serial.println(autoPilotSwitches.readState());
 timer++;
 }
