@@ -92,10 +92,11 @@ int PIFunctions::analogSwitchPosition(int fIndex, int numContacts)
 {
 	//Serial.println("analogSwitchPositions...");
 	int switchPosition = 0; //ERROR condition, it means it hasn't found a valid position.
-	int slope = (1024 / (numContacts - 1));
+	int slope = (1023 / (numContacts - 1));
 	int intercept = slope * numContacts;
 	int pinVoltage; //variable to store the sampled digitised voltage 0-1023 full scale.
 	pinVoltage = analogRead(fIndex);
-    // back calculate x to get the switch position.  negative slope as the slope is negative
+	//Serial.println(pinVoltage);
+	// back calculate x to get the switch position.  negative slope as the slope is negative
 	return  ((pinVoltage - intercept) / (-slope));
 }
