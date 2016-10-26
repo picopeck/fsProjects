@@ -23,6 +23,7 @@ public:
 	bool isLOW(int pinIndex);
 	int transitionDirection();
 	void init();
+	int digitalSwitchPosition(int switchIndexes[], int numSwitchPositions);
 
 #define INCREMENT 1
 #define DECREMENT -1

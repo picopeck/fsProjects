@@ -318,3 +318,19 @@ int PI74HC165Control::transitionDirection()
 
 	return (lclDirection);
 }
+
+int PI74HC165Control::digitalSwitchPosition(int switchIndexes[], int numSwitchPositions)
+{
+	int switchPosition = -1;// none detected
+	int numDetected = 0;//number of switches detected as HIGH
+	for (int i = 0; i<numSwitchPositions; i++)
+	{
+		if (isHIGH(switchIndexes[i]))
+		{
+			switchPosition = switchIndexes[i];
+			numDetected += 1;
+		}
+	}
+	if (numDetected > 1) switchPosition = -2; //multiple switches detected.
+	return (switchPosition);
+}
