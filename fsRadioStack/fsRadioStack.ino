@@ -1,6 +1,7 @@
 /*
-  PeckIndustrie RadioStack for fs.
+  PeckIndustries RadioStack for fs.
   link2fs supplied by your buddy.
+26/10/16 modified switch enumerated types to align with radio selection switch
 */
 
 #include "PIFunctions.h"
@@ -14,8 +15,6 @@ const int DEVICEID_TRANSPONDER = 2;
 
 const int POLL_DELAY_MSEC = 100;
 
-const bool DEBUG_ON = false;
-
 typedef struct
 {
   long activeFrequency;
@@ -26,12 +25,12 @@ typedef struct
 } radioType;
 
 // all the radio controls
-enum eRadios {NONE, COMM1, COMM2, NAV1, NAV2, ADF, XPDR};
+enum eRadios {NONE,COMM1, COMM2, NAV1, NAV2, ADF, XPDR};
 char* radioTags[] = {"NONE", "COMM1", "COMM2", "NAV1", "NAV2", "ADF", "XPDR"};
 
-//enum eRSCONTROL {RS_TEST_BUTTON, RS_TRANSFER_BUTTON, RS_FREQUENCY_UP, RS_FREQUENCY_DOWN,  RS_MAJOR_FREQUENCY_SWITCH, COMM1SWITCH, COMM2SWITCH, NAV1SWITCH, NAV2SWITCH, ADFSWITCH, XPDRSWITCH};
-enum eRSCONTROL {NAV2SWITCH,a,NAV1SWITCH,b,RS_FREQUENCY_DOWN,RS_FREQUENCY_UP,RS_TEST_BUTTON,RS_TRANSFER_BUTTON,COMM2SWITCH,RS_MAJOR_FREQUENCY_SWITCH,d,e,f,COMM1SWITCH,XPDRSWITCH,ADFSWITCH};
-
+enum eRSCONTROL {NAV2_SELECTED,a,NAV1_SELECTED,b,RS_FREQUENCY_DOWN,RS_FREQUENCY_UP,RS_TEST_BUTTON,RS_TRANSFER_BUTTON,COMM2_SELECTED,RS_MAJOR_FREQUENCY_SWITCH,d,e,f,COMM1_SELECTED,XPDR_SELECTED,ADF_SELECTED};
+int radioSelectorSwitch[] = {COMM1_SELECTED, COMM2_SELECTED, NAV1_SELECTED, NAV2_SELECTED, ADF_SELECTED, XPDR_SELECTED};
+#define RADIOSELECTORNUMCONTACTS 6
 
 // ### Pin allocations ###
 int max7219DataIn = 13; //DIN
@@ -57,8 +56,9 @@ bool IBITRunning = false;
 bool dataInitialised = false; //used to store the data recieved from fs, so as to only do it once at startup.
 int activeRadio;
 int previousRadio = 0;
-radioType allRadios[7]; //one for each enumerated switch position
+radioType allRadios[RADIOSELECTORNUMCONTACTS]; //one for each enumerated switch position
 int activeXPDRDigit = 1;
+int activeADFDigit = 1;
 bool bWasXPDR = false;
 
 void RADIOSTACK_READ(void);
@@ -73,8 +73,7 @@ void drawDisplay(void);
 long coerceFrequency(bool bIncrement);
 long readFrequency(eRSCONTROL fRadio);
 int initTimer = 0;
-int radioSelectorSwitch[] = {COMM1SWITCH, COMM2SWITCH, NAV1SWITCH, NAV2SWITCH, ADFSWITCH, XPDRSWITCH};
-#define RADIOSELECTORNUMCONTACTS 6
+
 
 void setup()
 {
@@ -102,20 +101,11 @@ void loop()
   //
   if (!IBITRunning)
   {
-    // during 'loop' cycle, need to check which radio is selected from the main switch
-    // if more than 1 index is used, then this could be enumerated too, but as only 1 for now, hard indexed
-    //activeRadio = commonFunction.analogSwitchPosition(0, 4); // returns the switch position that is selected for the indexed switch, where 0 is an error. i.e. the active radio
-    //if (activeRadio!=previousRadio)
-    //{
-    //  drawDisplay();
-    //}
-    //      previousRadio=activeRadio;
-    //      if (activeRadio == XPDR) bWasXPDR = true;
     if (radioStackSwitches.readState() != radioStackSwitches.previousState()) //switches have changed
     {
       processSwitchPositions();
-      radioStackSwitches.update();
       drawDisplay();
+      radioStackSwitches.update();
     }
   }
 
@@ -124,17 +114,14 @@ void loop()
 
 void RS_IBIT()
 {
-  //if (DEBUG_ON) Serial.println("IBIT Running...");
   IBITRunning = true;
   max7219Control.IBIT(); //turns on all the characters of each 7-segment
   //device74HC595.test();
   IBITRunning = false;
-  //if (DEBUG_ON) Serial.println("Complete.");
 }
 
 void initDefaults()
 {
-  //if (DEBUG_ON) Serial.println("Init Defaults...");
   //remember no decimals, i.e. value in kHz
   allRadios[COMM1].activeFrequency = 123750;
   allRadios[COMM1].stbyFrequency = 124750;
@@ -169,57 +156,94 @@ void initDefaults()
 
   // read data from fs string and overwrite the current and stby frequencies accordingly.
   //  RADIOSTACK_READ();
-  //if (DEBUG_ON) Serial.println("Complete.");
   // run through each of the switch positions to load them up.
   for (int i = 0; i < RADIOSELECTORNUMCONTACTS; i++)
   {
-    bWasXPDR = true;
-    activeRadio = radioSelectorSwitch[i];
-    previousRadio = 0;
+    activeRadio = radioSelectorSwitch[i+1];
     drawDisplay();
   }
 }
 
 void processSwitchPositions()
 {
+  Serial.println("Entry...[processSwitchPosition]");
+
   /* IBIT Processes */
-  if (DEBUG_ON) Serial.println("processSwitchPosition...");
-  /*  IBIT  */
   if (radioStackSwitches.isHIGH(RS_TEST_BUTTON))
   {
     RS_IBIT();
-//    activeRadio += 1;
-//    if (activeRadio > 6) activeRadio = 1;
   }
 
-  //activeRadio = commonFunction.analogSwitchPosition(0, 4); // returns the switch position that is selected for the indexed switch, where 0 is an error. i.e. the active radio
-  //activeRadio = radioStackSwitches.digitalSwitchPosition(radioSelectorSwitch, RADIOSELECTORNUMCONTACTS);
-  activeRadio=COMM1;
-  //Serial.println(activeRadio);
+
+//returns the currently selected radio as a pin index from the given array
+activeRadio = radioStackSwitches.digitalSwitchPosition(radioSelectorSwitch, RADIOSELECTORNUMCONTACTS);
+//map the pin index to the actual radio.
+switch (activeRadio)
+{
+case COMM1_SELECTED:
+  {
+    activeRadio=COMM1;
+    break;
+  }
+case COMM2_SELECTED:
+  {
+    activeRadio=COMM2;
+    break;
+  }
+case NAV1_SELECTED:
+  {
+    activeRadio=NAV1;
+    break;
+  }
+case NAV2_SELECTED:
+  {
+    activeRadio=NAV2;
+    break;
+  }
+case ADF_SELECTED:
+  {
+    activeRadio=ADF;
+    break;
+  }
+case XPDR_SELECTED:
+  {
+    activeRadio=XPDR;
+    break;
+  }
+default:
+  {
+    Serial.println("### ILLEGAL RADIO - [processSwitchPositions] ####");
+    activeRadio=COMM1;
+    break;
+  }
+}
+
 
     Serial.print("Active Radio :");
-    Serial.println(activeRadio);
+    Serial.println(radioTags[activeRadio]);
 
   if (activeRadio != previousRadio)
   {
     drawDisplay();
   }
   previousRadio = activeRadio;
-  if (activeRadio == XPDR) bWasXPDR = true;
+  
+if (activeRadio == XPDR) bWasXPDR = true;
 
   /* Encoder Clockwise */
   //if (radioStackSwitches.isClockwise(RS_FREQUENCY_UP, RS_FREQUENCY_DOWN)) //on encoder
-  if (radioStackSwitches.isLOW2HIGH(RS_FREQUENCY_UP))
+  //if (radioStackSwitches.isLOW2HIGH(RS_FREQUENCY_UP))
+  if (radioStackSwitches.isHIGH(RS_FREQUENCY_UP))  // want to keep incrementing if it's HIGH
   {
     Serial.println("incrementing");
     // RS_MAJOR_FREQUENCY is a independent switch that determines whether to increment the fractional or integer part.
     allRadios[activeRadio].stbyFrequency = coerceFrequency(true);
-
   }
 
   /* Encoder CounterClockwise */
   //if (radioStackSwitches.isCounterClockwise(RS_FREQUENCY_UP, RS_FREQUENCY_DOWN))
-  if (radioStackSwitches.isLOW2HIGH(RS_FREQUENCY_DOWN))
+  //if (radioStackSwitches.isLOW2HIGH(RS_FREQUENCY_DOWN))
+  if (radioStackSwitches.isHIGH(RS_FREQUENCY_DOWN))  // want to keep decrementing if it's HIGH
   {
     Serial.println("decrementing");
     allRadios[activeRadio].stbyFrequency = coerceFrequency(false);
@@ -233,44 +257,43 @@ void processSwitchPositions()
       if (activeXPDRDigit == 4) activeXPDRDigit = 1;
       else activeXPDRDigit += 1;
     }
+    else if (activeRadio == ADF)
+    {
+      if (activeADFDigit == 3) activeADFDigit = 1;
+      else activeADFDigit += 1;
+    }
     else
     {
       swapFrequencies();
     }
   }
-  if (DEBUG_ON) Serial.println("Complete.");
+  Serial.println("Exit - [processSwitchPosition].");
 }
 
 void swapFrequencies()
 {
-  //if (DEBUG_ON) Serial.println("swapFrequencies...");
   long tempFrequency = allRadios[activeRadio].activeFrequency;
   allRadios[activeRadio].activeFrequency = allRadios[activeRadio].stbyFrequency;
   allRadios[activeRadio].stbyFrequency = tempFrequency;
   //'output' the values to fs
   Serial.println("Outputting Frequency to fs");
-  //if (DEBUG_ON) Serial.println("Complete.");
 }
 
 void drawDisplay()
 {
-  if (DEBUG_ON) Serial.println("drawDisplay...");
-  /* Selector switch has moved off XPDR */
-  // always want to draw XPDR, unless it hasn't changed
-  if (activeRadio == XPDR) //for when it's selected and the decimal denotes the digit which is changing
-  {
-    max7219Control.displayNumber(DEVICEID_TRANSPONDER, allRadios[XPDR].stbyFrequency, 5, 4, 4 - activeXPDRDigit, 1, true, true); //want to draw a decimal point on the activeXPDRDigit
-  }
-  else if (bWasXPDR) // it won't be XPDR as the above would have taken place.
+  Serial.println("Entry - [drawDisplay]");
+  
+/* Selector switch has moved off XPDR */
+  if (bWasXPDR)
   { // the switch has moved from XPDR to something else, therefore need to send the XPDR frequency.
     Serial.println("was XPDR");
-    max7219Control.displayNumber(DEVICEID_TRANSPONDER, allRadios[XPDR].stbyFrequency, 5, 4); //REQUIRES LEADING ZERO, another reason to perhaps have displayNumber as a string rather than numbers…
+    max7219Control.displayNumber(DEVICEID_TRANSPONDER, allRadios[XPDR].stbyFrequency, 5, 4); //REQUIRES LEADING ZERO, another reason to perhaps have displayNumber as a string rather than numbers�
     Serial.println("send XPDR stbyFrequency");
     bWasXPDR = false;
   }
   else {  }
 
- switch (activeRadio)
+switch (activeRadio)
   {
     case NONE:
       {
@@ -279,36 +302,34 @@ void drawDisplay()
       }
     case XPDR:
       {
-        //do nothing additional to above conditioning
+        max7219Control.displayNumber(DEVICEID_TRANSPONDER, allRadios[XPDR].stbyFrequency, 5, 4, 4 - activeXPDRDigit, 1, true, true); //want to draw a decimal point on the activeXPDRDigit
         break;
       }
     case ADF:
       {
         max7219Control.blankDisplay(DEVICEID_ACTIVEFREQUENCY); //blank the ACTIVEFREQUENCY display as it's not used
-        max7219Control.blankDisplay(DEVICEID_STANDBYFREQUENCY); //blank the ACTIVEFREQUENCY display as it's not used
-        max7219Control.displayNumber(DEVICEID_STANDBYFREQUENCY, allRadios[activeRadio].stbyFrequency, 6, 3, 0, 1, false, false); //use 3rd position to shift by 2 to the right
+        max7219Control.blankDisplay(DEVICEID_STANDBYFREQUENCY); //blank the STANDBYFREQUENCY prior to drawing the ADF
+        max7219Control.displayNumber(DEVICEID_STANDBYFREQUENCY, allRadios[ADF].stbyFrequency, 6, 3, 3 - activeADFDigit, 1, true, true); //want to draw a decimal point on the activeADFDigit
+        // NOTE that this doesn't need the bWasADF (as with the XPDR) as one of the other radios will overwrite it.
         break;
       }
     default : //for all other radios, the frequencies of the active one are displayed
       {
-        //Serial.println(allRadios[activeRadio].activeFrequency);
         max7219Control.displayNumber(DEVICEID_ACTIVEFREQUENCY, allRadios[activeRadio].activeFrequency, 1, 6, 3);
-        //(int fDeviceID, long fNumber, int fStartIndex, int fLength, int fPower, int fNegative, bool fLeadingZero, bool displayDecimalAtZeroPower)
         max7219Control.displayNumber(DEVICEID_STANDBYFREQUENCY, allRadios[activeRadio].stbyFrequency, 3, 6, 3); //use 3rd position to shift by 2 to the right
         break;
       }
   }
-  if (DEBUG_ON) Serial.println("Complete.");
+  Serial.println("Exit - [drawDisplay].");
 }
 
 /*
   ### coerceFrequency ### : returns a coerced frequency depending upon the radio selected.
   bIncrement : whether its incrementing (TRUE) or decrementing (FALSE)
-  bMajor : whether it's the Major (integer) part (TRUE) or the fractional (FALSE) part
 */
 long coerceFrequency(bool bIncrement)
 {
-  if (DEBUG_ON) Serial.println("coerceFrequency...");
+  Serial.println("Entry - [coerceFrequency]");
   bool bMajor = radioStackSwitches.isHIGH(RS_MAJOR_FREQUENCY_SWITCH);
   long tempMajor = allRadios[activeRadio].stbyFrequency / 1000;
   long tempMinor = allRadios[activeRadio].stbyFrequency - tempMajor * 1000;
@@ -318,42 +339,69 @@ long coerceFrequency(bool bIncrement)
     case XPDR:
       {
         // could call a generic function which handles various numbers of field i.e. ADF will be the same code, but with 3 digits instead of 4
-        // depends upon which digit is changing to how it wraps around…
+        // depends upon which digit is changing to how it wraps around�
         // work on each digit independently
         //split the frequency into 4 digits
-        int tempXPDRFrequency[4];
-        long tempXPDRFrequency2 = allRadios[XPDR].stbyFrequency;
+        int tempFrequency[4];
+        long tempFrequency2 = allRadios[XPDR].stbyFrequency;
         for (int i = 0; i < 4; i++)
         { // build the frequency one digit at a time
-          tempXPDRFrequency[i] = tempXPDRFrequency2 / pow(10, (4 - (i + 1)));
-          tempXPDRFrequency2 -= tempXPDRFrequency[i] * pow(10, (4 - (i + 1)));
+          tempFrequency[i] = tempFrequency2 / pow(10, (4 - (i + 1)));
+          tempFrequency2 -= tempFrequency[i] * pow(10, (4 - (i + 1)));
         }
         //work on which one is changing.
         if (bIncrement)
         {
-          if ((tempXPDRFrequency[activeXPDRDigit] + 1) > 9) tempXPDRFrequency[activeXPDRDigit] = 0;
-          else tempXPDRFrequency[activeXPDRDigit] += 1;
+          if ((tempFrequency[activeXPDRDigit] + 1) > 9) tempFrequency[activeXPDRDigit] = 0;
+          else tempFrequency[activeXPDRDigit] += 1;
         }
         else //decrementing
         {
-          if ((tempXPDRFrequency[activeXPDRDigit] - 1) < 0) tempXPDRFrequency[activeXPDRDigit] = 9;
-          else tempXPDRFrequency[activeXPDRDigit] -= 1;
+          if ((tempFrequency[activeXPDRDigit] - 1) < 0) tempFrequency[activeXPDRDigit] = 9;
+          else tempFrequency[activeXPDRDigit] -= 1;
         }
 
         //rebuild value
         tempMinor = 0;
         for (int i = 0; i < 4; i++)
         { // rebuild the frequency one digit at a time
-          tempMinor += tempXPDRFrequency[i] * pow(10, (4 - (i + 1)));
+          tempMinor += tempFrequency[i] * pow(10, (4 - (i + 1)));
         }
         tempMajor = 0;
         break;
       }
     case ADF:
       {
+        //split the frequency into 3 digits
+        int tempFrequency[3];
+        long tempFrequency2 = allRadios[ADF].stbyFrequency;
+        for (int i = 0; i < 3; i++)
+        { // build the frequency one digit at a time
+          tempFrequency[i] = tempFrequency2 / pow(10, (3 - (i + 1)));
+          tempFrequency2 -= tempFrequency[i] * pow(10, (3 - (i + 1)));
+        }
+        //work on which one is changing.
+        if (bIncrement)
+        {
+          if ((tempFrequency[activeADFDigit] + 1) > 9) tempFrequency[activeADFDigit] = 0;
+          else tempFrequency[activeADFRDigit] += 1;
+        }
+        else //decrementing
+        {
+          if ((tempFrequency[activeADFDigit] - 1) < 0) tempFrequency[activeADFDigit] = 9;
+          else tempFrequency[activeADFDigit] -= 1;
+        }
+
+        //rebuild value
+        tempMinor = 0;
+        for (int i = 0; i < 3; i++)
+        { // rebuild the frequency one digit at a time
+          tempMinor += tempFrequency[i] * pow(10, (3 - (i + 1)));
+        }
+        tempMajor = 0;
         break;
       }
-Default:
+    default:
       {
         if (bMajor)
         {
@@ -386,14 +434,18 @@ Default:
         break;
       }
   }
-  if (DEBUG_ON) Serial.println(tempMajor * 1000 + tempMinor);
-  if (DEBUG_ON) Serial.println("Complete.");
+Serial.print("[coerceFrequency] tempMajor : ");
+Serial.println(tempMajor *1000);
+Serial.print("[coerceFrequency] tempMinor : ");
+Serial.println(tempMinor);
+Serial.println(tempMajor * 1000 + tempMinor);
+Serial.println("Exit - [coerceFrequency].");
   return (tempMajor * 1000 + tempMinor);
 }
 
 void RADIOSTACK_READ()
 {
-  if (DEBUG_ON) Serial.println("RADIOSTACK_READ...");
+  Serial.println("Entry - [RADIOSTACK_READ]");
 
   int iCodeIn;
   for (int i = 0; i < 500; i++)
@@ -475,14 +527,12 @@ void RADIOSTACK_READ()
     }
   }
   Serial.print(dataInitialised);
-  if (DEBUG_ON) Serial.println("RADIOSTACK_READ Complete.");
-
+  Serial.println("Exit - [RADIOSTACK_READ].");
 }
 
 // reads the frequency from the string fs string
 long readFrequency(eRadios fRadio)
 {
-  //if (DEBUG_ON) Serial.println("readFrequency...");
   long tempFrequency;
   if (fRadio == XPDR)
   {
@@ -501,17 +551,26 @@ long readFrequency(eRadios fRadio)
     //length will be 6 characters
     tempFrequency = commonFunction.getLong(7, 3);
   }
-  else if ((fRadio == NAV1) || (fRadio == NAV2)) // all other radios will be 6 digits
+  else if ((fRadio == NAV1) || (fRadio == NAV2) // all other radios will be 6 digits
   {
     //length will be 6 characters
     tempFrequency = commonFunction.getLong(6, 2);
   }
   else
   {
-    Serial.println("### No Radio Selected [readFrequency] ###");
+    Serial.println("### ILLEGAL CALL - Not a valid Radio Selected [readFrequency] ###");
   }
 
-  if (DEBUG_ON) Serial.println(tempFrequency);
-  //if (DEBUG_ON) Serial.println("Complete.");
   return (tempFrequency);
 }
+
+            }
+        }
+      }
+    }
+  }
+  Serial.print(dataInitialised);
+  Serial.println("Exit - [RADIOSTACK_READ].");
+}
+
+// reads the frequency from the string fs string
